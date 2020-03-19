@@ -1,7 +1,18 @@
 defmodule Forth do
+  alias Forth.Word
   @opaque evaluator :: %Forth{}
 
-  defstruct stack: []
+  defstruct stack: [],
+            words: %{
+              "+" => &Word.add/1,
+              "-" => &Word.subtract/1,
+              "*" => &Word.multiply/1,
+              "/" => &Word.divide/1,
+              "dup" => &Word.dup/1,
+              "drop" => &Word.drop/1,
+              "swap" => &Word.swap/1,
+              "over" => &Word.over/1
+            }
 
   @doc """
   Create a new evaluator.
@@ -15,61 +26,50 @@ defmodule Forth do
   Evaluate an input string, updating the evaluator state.
   """
   @spec eval(evaluator, String.t()) :: evaluator
-  def eval(ev, text), do: eval(ev, text, nil)
+  def eval(ev, text), do: process(ev, tokenize(text))
 
-  # Empty
-  defp eval(ev, <<>>, current) do
-    process(ev, current)
+  defp tokenize(text) do
+    String.chunk(text, :printable)
+    |> Enum.flat_map(&String.split/1)
+    |> Enum.filter(&String.printable?/1)
   end
 
-  # Number
-  defp eval(ev, <<c::utf8, rest::binary>>, nil) when c >= ?0 and c <= ?9 do
-    eval(ev, rest, {:number, <<c>>})
+  defp process(ev, []), do: ev
+
+  defp process(ev, [":", name | tokens]) do
+    {word_fn, tokens} = process_word_body(tokens)
+    name = String.downcase(name)
+
+    case Integer.parse(name) do
+      {_, _} ->
+        raise Forth.InvalidWord
+
+      :error ->
+        ev = %{ev | words: Map.put(ev.words, name, word_fn)}
+        process(ev, tokens)
+    end
   end
 
-  defp eval(ev, <<c::utf8, rest::binary>>, {:number, acc}) when c >= ?0 and c <= ?9 do
-    eval(ev, rest, {:number, acc <> <<c>>})
+  defp process(ev, [token | rest]) do
+    ev =
+      case Integer.parse(token) do
+        :error -> process_word(ev, token)
+        {n, _} -> %{ev | stack: [n | ev.stack]}
+      end
+
+    process(ev, rest)
   end
 
-  defp eval(ev, <<c::utf8, rest::binary>>, {:number, acc}) when c >= ?a and c <= ?z or c >= ?A and c <= ?Z do
-    eval(ev, rest, {:number, acc <> <<c>>})
+  defp process_word(ev, word) do
+    case ev.words[String.downcase(word)] do
+      nil -> raise Forth.UnknownWord
+      fun -> %{ev | stack: fun.(ev.stack)}
+    end
   end
 
-  # Arithmetic
-  defp eval(ev, "+" <> rest, nil), do: eval(ev, rest, :add)
-  defp eval(ev, "-" <> rest, nil), do: eval(ev, rest, :subtract)
-  defp eval(ev, "*" <> rest, nil), do: eval(ev, rest, :multiply)
-  defp eval(ev, "/" <> rest, nil), do: eval(ev, rest, :divide)
-
-  # Non-word character
-  defp eval(ev, <<_::utf8, rest::binary>>, current) do
-    eval(process(ev, current), rest, nil)
-  end
-
-  defp process(ev, nil), do: ev
-
-  defp process(ev, {:number, n}) do
-    %{ev | stack: [String.to_integer(n) | ev.stack]}
-  end
-
-  defp process(%{stack: [x, y | t]} = ev, :add) do
-    %{ev | stack: [y + x | t]}
-  end
-
-  defp process(%{stack: [x, y | t]} = ev, :subtract) do
-    %{ev | stack: [y - x | t]}
-  end
-
-  defp process(%{stack: [x, y | t]} = ev, :multiply) do
-    %{ev | stack: [y * x | t]}
-  end
-
-  defp process(%{stack: [0 | t]} = ev, :divide) do
-    raise Forth.DivisionByZero
-  end
-
-  defp process(%{stack: [x, y | t]} = ev, :divide) do
-    %{ev | stack: [div(y, x) | t]}
+  defp process_word_body(tokens) do
+    {body, [";" | tokens]} = Enum.split_while(tokens, &(&1 !== ";"))
+    {fn stack -> process(%Forth{stack: stack}, body).stack end, tokens}
   end
 
   @doc """
@@ -105,5 +105,28 @@ defmodule Forth do
   defmodule DivisionByZero do
     defexception []
     def message(_), do: "division by zero"
+  end
+
+  defmodule Word do
+    def add([y, x | stack]), do: [x + y | stack]
+
+    def subtract([y, x | stack]), do: [x - y | stack]
+
+    def multiply([y, x | stack]), do: [x * y | stack]
+
+    def divide([0 | _]), do: raise(Forth.DivisionByZero)
+    def divide([y, x | stack]), do: [div(x, y) | stack]
+
+    def dup([x | stack]), do: [x, x | stack]
+    def dup(_), do: raise(Forth.StackUnderflow)
+
+    def drop([_ | stack]), do: stack
+    def drop(_), do: raise(Forth.StackUnderflow)
+
+    def swap([x, y | stack]), do: [y, x | stack]
+    def swap(_), do: raise(Forth.StackUnderflow)
+
+    def over([x, y | stack]), do: [y, x, y | stack]
+    def over(_), do: raise(Forth.StackUnderflow)
   end
 end
