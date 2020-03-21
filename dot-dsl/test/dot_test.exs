@@ -43,7 +43,7 @@ defmodule DotTest do
              )
   end
 
-  @tag :pending
+  #  @tag :pending
   test "graph with one edge" do
     assert %Graph{edges: [{:a, :b, []}]} ==
              exprt(
@@ -53,7 +53,7 @@ defmodule DotTest do
              )
   end
 
-  @tag :pending
+  #  @tag :pending
   test "graph with just attribute" do
     assert %Graph{attrs: [foo: 1]} ==
              exprt(
