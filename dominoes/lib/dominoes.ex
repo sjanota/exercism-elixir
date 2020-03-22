@@ -7,22 +7,36 @@ defmodule Dominoes do
   """
   @spec chain?(dominoes :: [domino] | []) :: boolean
   def chain?([]), do: true
-  def chain?([{x, x}]), do: true
-  def chain?([{first, _} = block | bank]), do: yyy(block, bank, first)
+  def chain?([{left, right} = h | t]), do: chain?(h, t, left) or chain?(reverse(h), t, right)
   def chain?(_), do: false
 
-  defp yyy({_, first}, [], first), do: true
-  defp yyy({_, _}, [], _), do: false
+  @spec chain?(domino, dominoes :: [domino], first_number :: 1..6) :: boolean
+  defp chain?(domino, dominoes, first_number)
 
-  defp yyy({_, next}, bank, first) do
-    case find_next(bank, next, []) do
-      {block, bank} -> yyy(block, bank, first)
-      nil -> false
-    end
+  defp chain?({_, first_number}, [], first_number), do: true
+
+  defp chain?({left, right}, dominoes, first_number) do
+    matching = take_matching(dominoes, right)
+    Enum.any?(matching, fn {domino, remaining} -> chain?(domino, remaining, first_number) end)
   end
 
-  def find_next([], _, _), do: nil
-  def find_next([{next, _} = block | bank], next, acc), do: {block, acc ++ bank}
-  def find_next([{x, next} = block | bank], next, acc), do: {{next, x}, acc ++ bank}
-  def find_next([{_, _} = block | bank], next, acc), do: find_next(bank, next, [block | acc])
+  @spec take_matching(dominoes :: [domino], number_to_match :: 1..6) :: [
+          {match :: domino, remaining :: [domino]}
+        ]
+  def take_matching(dominoes, number_to_match),
+    do: take_matching(dominoes, number_to_match, [], [])
+
+  def take_matching([], _, _, acc), do: acc
+
+  def take_matching([{match, _} = h | t], match, checked, acc),
+    do: take_matching(t, match, [h | checked], [{h, checked ++ t} | acc])
+
+  def take_matching([{_, match} = h | t], match, checked, acc),
+    do: take_matching(t, match, [h | checked], [{reverse(h), checked ++ t} | acc])
+
+  def take_matching([h | t], next, checked, acc),
+    do: take_matching(t, next, [h | checked], acc)
+
+  @spec reverse(domino) :: domino
+  defp reverse({left, right}), do: {right, left}
 end

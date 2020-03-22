@@ -40,7 +40,7 @@ defmodule DominoesTest do
     assert Dominoes.chain?([{1, 2}, {2, 3}, {3, 1}, {4, 4}]) == false
   end
 
-  @tag :pending
+  #  @tag :pending
   test "need backtrack" do
     # a variation in which we have to turn but no duplicates
     assert Dominoes.chain?([{1, 2}, {2, 3}, {3, 1}, {2, 4}, {2, 4}]) == true
