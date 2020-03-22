@@ -7,35 +7,38 @@ defmodule Dominoes do
   """
   @spec chain?(dominoes :: [domino] | []) :: boolean
   def chain?([]), do: true
-  def chain?([{left, right} = h | t]), do: chain?(h, t, left) or chain?(reverse(h), t, right)
+
+  def chain?([{left, right} = h | t]),
+    do: chain?(h, t, [], left) or chain?(reverse(h), t, [], right)
+
   def chain?(_), do: false
 
-  @spec chain?(domino, dominoes :: [domino], first_number :: 1..6) :: boolean
-  defp chain?(domino, dominoes, first_number)
+  @spec chain?(domino, remaining :: [domino], checked :: [domino], first_number :: 1..6) ::
+          boolean
+  defp chain?(domino, remaining, checked, first_number)
 
-  defp chain?({_, first_number}, [], first_number), do: true
+  defp chain?({_, first_number}, [], [], first_number), do: true
+  defp chain?(_, [], _, _), do: false
 
-  defp chain?({left, right}, dominoes, first_number) do
-    matching = take_matching(dominoes, right)
-    Enum.any?(matching, fn {domino, remaining} -> chain?(domino, remaining, first_number) end)
+  defp chain?({_, right} = domino, [h | t], checked, first_number) do
+    is_chain =
+      case h do
+        {^right, _} ->
+          chain?(h, checked ++ t, [], first_number)
+
+        {_, ^right} ->
+          chain?(reverse(h), checked ++ t, [], first_number)
+
+        _ ->
+          false
+      end
+
+    unless is_chain do
+      chain?(domino, t, [h | checked], first_number)
+    else
+      is_chain
+    end
   end
-
-  @spec take_matching(dominoes :: [domino], number_to_match :: 1..6) :: [
-          {match :: domino, remaining :: [domino]}
-        ]
-  def take_matching(dominoes, number_to_match),
-    do: take_matching(dominoes, number_to_match, [], [])
-
-  def take_matching([], _, _, acc), do: acc
-
-  def take_matching([{match, _} = h | t], match, checked, acc),
-    do: take_matching(t, match, [h | checked], [{h, checked ++ t} | acc])
-
-  def take_matching([{_, match} = h | t], match, checked, acc),
-    do: take_matching(t, match, [h | checked], [{reverse(h), checked ++ t} | acc])
-
-  def take_matching([h | t], next, checked, acc),
-    do: take_matching(t, next, [h | checked], acc)
 
   @spec reverse(domino) :: domino
   defp reverse({left, right}), do: {right, left}

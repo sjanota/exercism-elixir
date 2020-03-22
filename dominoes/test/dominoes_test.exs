@@ -21,6 +21,7 @@ defmodule DominoesTest do
   end
 
   #  @tag :pending
+  @tag :force
   test "can reverse dominoes" do
     assert Dominoes.chain?([{1, 2}, {1, 3}, {2, 3}]) == true
   end
