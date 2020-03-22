@@ -33,11 +33,7 @@ defmodule Dominoes do
           false
       end
 
-    unless is_chain do
-      chain?(domino, t, [h | checked], first_number)
-    else
-      is_chain
-    end
+    is_chain or chain?(domino, t, [h | checked], first_number)
   end
 
   @spec reverse(domino) :: domino
